@@ -1,0 +1,41 @@
+
+parameters:
+
+  input_file: "/home/yash/Documents/session.bin"
+  output_file: "/home/yash/Documents/session.csv"
+
+  # Sensor params
+  T: 1.6393442622951e-5 # 16 microseconds
+  C: 3e8                 # Speed of light in m/s
+  BW: 1.6e+9             # Bandwidth in Hz; 2 GHz
+  LAMBDA: 1550e-9        # Wavelength 1550n,
+  VERTICAL_RES_DEG: 0.01689 # vertical resolution in radians
+
+  min_pts: 10 # Minimum points for processing.
+
+  # Parameters for Probabilistic RANSAC. P-RANSAC changes the number of
+  # max_iters depending on the % of inliers found.
+  rnsc_confidence: 0.89 # Confidence for P-RANSAC.
+  rnsc_thres: 0.5 # Residual threshold for P-RANSAC.
+  rnsc_inlier_ratio: 0.1 # AT least 10% inliers are found
+  rnsc_max_iter: 1000 # Maximum iterations for P-RANSAC
+  rnsc_alpha: 0.75 # This decides the width of boundaries i.e min_boundary = ego - alpha
+
+  # Parameters for Median-based outlier selection
+  med_alpha_up: 2.0 # Upper threshold in normal cases
+  med_alpha_down: 1.85 # Lower threshold in normal cases
+  med_alpha_up_agg: 2.7 # Aggressive alpha, this gets triggered on high speed
+  med_alpha_down_agg: 2.0
+
+  # Parameters to pick points from top elevation. These points serve as good dopplers.
+  # The ego velocity calculated from these points is then compared against the two algorithms.
+  # This is crucial as this helps in determining the best algorithm to use in runtime.
+  num_pts_init: 500 # Initially pick 500 points from top elevations.
+  num_pts_recollect: 1000 # Recollect more points if the estimates from top elevation are not good
+
+  # Parameters to chose between P-RANSAC and Median-based outlier detection
+  ego_recollect_threshold: 2.0 # This decides if we need to recollect points from top elevation.
+  min_ego_velocity_for_correction: 5.0 # If the average of all 3 ego velocities is less than this, then skip the correction. (m/s)
+  ransac_preference_threshold: 0.1 # If the difference in ego velocities is less than this, then prefer P-RANSAC over Median
+  med_diff_aggr_thres: 3.0 # This is the threshold that decides if the alpha in median-based method should be aggressive or normal
+  top_ego_conf_th: 4.5 # This is the threshold that decides if the alpha in median-based method should be aggressive or normal
