@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
 project(rd_ambiguity_solver)
 
-# Find the voyant-api package if building this example directly
+# Find dependencies if not already found at project level
 if(NOT TARGET voyant-api::voyant-api)
     find_package(voyant-api REQUIRED PATHS /usr/lib/cmake/voyant-api)
 endif()
 
-find_package(yaml-cpp REQUIRED)
+if(NOT TARGET yaml-cpp)
+    find_package(yaml-cpp REQUIRED)
+endif()
 
 add_executable(rng_dop_amb_solver ${CMAKE_CURRENT_SOURCE_DIR}/../../utils/point_cloud_utils.cpp ego_velocity_estimator.cpp doppler_ambiguity_resolver.cpp)
 target_link_libraries(rng_dop_amb_solver
