@@ -17,11 +17,10 @@
  * @brief A class that performs coordinate transforms and other utilities
  */
 
-class PointCloudUtils
-{
-public:
-  PointCloudUtils();  // Constructor
-  ~PointCloudUtils(); // Destructor
+class PointCloudUtils {
+ public:
+  PointCloudUtils();   // Constructor
+  ~PointCloudUtils();  // Destructor
 
   std::vector<double> rngToFreq(const std::vector<double> &rng, double bw, double c, double T);
   std::vector<double> dopToFreq(const std::vector<double> &d, double lam);
@@ -29,17 +28,11 @@ public:
   double freqToDop(double fd, double lam);
   std::pair<std::vector<double>, std::vector<double>> getUpDownFreqs(std::vector<double> &rng,
                                                                      std::vector<double> &d,
-                                                                     double bw,
-                                                                     double c,
-                                                                     double T,
+                                                                     double bw, double c, double T,
                                                                      double lam);
   std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> cart2sphere(
-      const std::vector<double> &x,
-      const std::vector<double> &y,
-      const std::vector<double> &z);
+      const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z);
   double findMedian(std::vector<double> arr);
   std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> sphere2cart(
-      const std::vector<double> &r,
-      const std::vector<double> &az,
-      const std::vector<double> &el);
+      const std::vector<double> &r, const std::vector<double> &az, const std::vector<double> &el);
 };
