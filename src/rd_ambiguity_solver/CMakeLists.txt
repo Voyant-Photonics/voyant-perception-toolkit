@@ -18,7 +18,7 @@ target_link_libraries(rng_dop_amb_solver
 
 # Include the headers from the "include" directory
 target_include_directories(rng_dop_amb_solver PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include # Top-level "include" directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../utils # Top-level "utils" directory
 )
 set_target_properties(rng_dop_amb_solver
     PROPERTIES

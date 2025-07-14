@@ -6,7 +6,6 @@ parameters:
 
   # Sensor params
   T: 1.6393442622951e-5 # 16 microseconds
-  C: 3e8                 # Speed of light in m/s
   BW: 1.6e+9             # Bandwidth in Hz; 2 GHz
   LAMBDA: 1550e-9        # Wavelength 1550n,
   VERTICAL_RES_DEG: 0.01689 # vertical resolution in radians

@@ -5,20 +5,19 @@
 
 #pragma once
 
+#include <yaml-cpp/yaml.h>
+
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-
-#include "ego_velocity_estimator.hpp"
-// #include <map>
-#include <yaml-cpp/yaml.h>
-
 #include <sstream>
 #include <string>
 #include <vector>
 #include <voyant_frame_wrapper.hpp>
 #include <voyant_playback.hpp>
+
+#include "ego_velocity_estimator.hpp"
 
 /*
  * @brief Parameters for the Doppler ambiguity resolver
@@ -27,7 +26,6 @@ struct Params {
   std::string input_file;
   std::string output_file;
   double T;
-  double C;
   double BW;
   double LAMBDA;
   double VERTICAL_RES_DEG;

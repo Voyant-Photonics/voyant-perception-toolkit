@@ -3,7 +3,7 @@
 // This example code is licensed under the MIT License.
 // See the LICENSE file in the repository root for full license text.
 
-#include "voyant-perception-toolkit/point_cloud_utils.hpp"
+#include "point_cloud_utils.hpp"
 
 PointCloudUtils::PointCloudUtils() {
   std::cout << "[+] Starting the utils" << std::endl;
@@ -12,12 +12,12 @@ PointCloudUtils::~PointCloudUtils() {
   std::cout << "[+] Shutting the utils..." << std::endl;
 }  // Destructor
 
-std::vector<double> PointCloudUtils::rngToFreq(const std::vector<double> &rng, double bw, double c,
+std::vector<double> PointCloudUtils::rngToFreq(const std::vector<double> &rng, double bw,
                                                double T) {
   size_t n = rng.size();
   std::vector<double> frequencies;
   for (size_t i = 0; i < n; ++i) {
-    double f = (2 * bw * rng[i]) / (c * T);
+    double f = (2 * bw * rng[i]) / (C * T);
     frequencies.push_back(f);
   }
   return frequencies;
@@ -31,15 +31,15 @@ std::vector<double> PointCloudUtils::dopToFreq(const std::vector<double> &d, dou
   }
   return frequencies;
 }
-double PointCloudUtils::freqToRng(double fr, double bw, double c, double T) {
-  return (fr * c * T) / (2 * bw);
+double PointCloudUtils::freqToRng(double fr, double bw, double T) {
+  return (fr * C * T) / (2 * bw);
 }
 double PointCloudUtils::freqToDop(double fd, double lam) { return (lam * fd) / 2; }
 std::pair<std::vector<double>, std::vector<double>> PointCloudUtils::getUpDownFreqs(
-    std::vector<double> &rng, std::vector<double> &d, double bw, double c, double T, double lam) {
+    std::vector<double> &rng, std::vector<double> &d, double bw, double T, double lam) {
   std::vector<double> f_up, f_down, f_rng, f_dop;
-  f_rng = rngToFreq(rng, bw, c, T);  // Range beat frequency
-  f_dop = dopToFreq(d, lam);         // Doppler beat frequency
+  f_rng = rngToFreq(rng, bw, T);  // Range beat frequency
+  f_dop = dopToFreq(d, lam);      // Doppler beat frequency
 
   for (size_t i = 0; i < f_rng.size(); ++i) {
     double fr = f_rng[i];

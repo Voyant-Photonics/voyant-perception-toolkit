@@ -29,7 +29,6 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
     solver_params_.input_file = sensor_config["input_file"].as<std::string>();
     solver_params_.output_file = sensor_config["output_file"].as<std::string>();
     solver_params_.T = sensor_config["T"].as<double>();
-    solver_params_.C = sensor_config["C"].as<double>();
     solver_params_.BW = sensor_config["BW"].as<double>();
     solver_params_.LAMBDA = sensor_config["LAMBDA"].as<double>();
     solver_params_.min_pts = sensor_config["min_pts"].as<int>();
@@ -63,7 +62,7 @@ std::pair<std::vector<double>, std::vector<double>> AmbiguitySolver::recoverRang
     std::vector<double> amb_rng, std::vector<double> amb_dop) {
   std::vector<double> new_rng, new_dop, fr_up, fr_down;
   std::pair<std::vector<double>, std::vector<double>> chirps =
-      pc_utils_.getUpDownFreqs(amb_rng, amb_dop, config.BW, config.C, config.T, config.LAMBDA);
+      pc_utils_.getUpDownFreqs(amb_rng, amb_dop, config.BW, config.T, config.LAMBDA);
   fr_up = std::get<0>(chirps);
   fr_down = std::get<1>(chirps);
 
@@ -78,7 +77,7 @@ std::pair<std::vector<double>, std::vector<double>> AmbiguitySolver::recoverRang
     }
 
     // Calculate the new Range and Doppler frequencies from new Up and Down Chirps.
-    double r_new = pc_utils_.freqToRng(((fup + fdnw) / 2), config.BW, config.C, config.T);
+    double r_new = pc_utils_.freqToRng(((fup + fdnw) / 2), config.BW, config.T);
     double d_new = pc_utils_.freqToDop(((fup - fdnw) / 2), config.LAMBDA);
 
     new_rng.push_back(r_new);
@@ -97,9 +96,8 @@ void AmbiguitySolver::writeRecoveredPointsToCSV(const std::string &filename,
   }
 
   // Write header
-  file << "x,y,z,doppler,point_idx,frame_idx,timestamp,drop_reason,snr_linear,calibrated_"
-          "reflectance,noise_mean_"
-          "estimate,min_ramp_snr\n";
+  file << "x,y,z,doppler,point_idx,frame_idx,timestamp,drop_reason,snr_linear,"
+          "calibrated_reflectance,noise_mean_estimate,min_ramp_snr\n";
 
   // Write data
   for (const auto &row : points) {
@@ -418,10 +416,6 @@ int main(int argc, char *argv[]) {
   while (player.nextFrame()) {
     size_t frameIndex = player.currentFrameIndex();
     std::cout << "[+] Processing frame: " << frameIndex << std::endl;
-    if (frameIndex == 100) {
-      std::cout << "[+] Reached 100 frames, stopping playback." << std::endl;
-      break;  // Stop after processing 100 frames
-    }
     const VoyantFrameWrapper &frame = player.currentFrame();
     // Start the solver
     std::vector<std::array<double, 12>> recovered_points = rngDopSolver.Solver(frame, frameIndex);

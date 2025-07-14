@@ -66,4 +66,3 @@ Effect: Triggers relaxed validation in ambiguous or high-speed cases.
 ### e. top_ego_conf_th:
 If the ego velocity from top elevation points exceeds this, it's considered highly reliable, enabling aggressive median mode.
 Effect: Strengthens trust in top elevation readings in fast motion.
-

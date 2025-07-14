@@ -7,14 +7,13 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-
-#include "voyant-perception-toolkit/point_cloud_utils.hpp"
-// #include <map>
 #include <numeric>
 #include <random>
 #include <set>
 #include <tuple>
 #include <vector>
+
+#include "point_cloud_utils.hpp"
 /*
  * @class EgoInlierEstimator
  * @brief A class that estimates the inlier points that account for true ego velocity
