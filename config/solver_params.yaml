@@ -1,8 +1,8 @@
 
 parameters:
 
-  input_file: "/home/yash/Documents/session.bin"
-  output_file: "/home/yash/Documents/session.csv"
+  input_file: "/path/to/your/input.bin"
+  output_file: "/path/to/your/output.csv"
 
   # Sensor params
   T: 1.6393442622951e-5 # 16 microseconds
