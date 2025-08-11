@@ -31,6 +31,7 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
     solver_params_.T = sensor_config["T"].as<double>();
     solver_params_.BW = sensor_config["BW"].as<double>();
     solver_params_.LAMBDA = sensor_config["LAMBDA"].as<double>();
+    solver_params_.VERTICAL_RES_DEG = sensor_config["VERTICAL_RES_DEG"].as<double>();
     solver_params_.min_pts = sensor_config["min_pts"].as<int>();
     solver_params_.rnsc_confidence = sensor_config["rnsc_confidence"].as<double>();
     solver_params_.rnsc_thres = sensor_config["rnsc_thres"].as<double>();
