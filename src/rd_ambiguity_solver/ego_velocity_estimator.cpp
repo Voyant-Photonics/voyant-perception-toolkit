@@ -51,12 +51,12 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
   int iteration = 0;
 
   std::mt19937 rng(42);
-  std::uniform_int_distribution<> dist(0, n_points - 1);
+  std::uniform_int_distribution<size_t> dist(0, n_points - 1);
 
   while (iteration < max_iterations) {
     std::vector<int> sample_idx;
     while (sample_idx.size() < 3) {
-      int idx = dist(rng);
+      int idx = static_cast<int>(dist(rng));
       if (std::find(sample_idx.begin(), sample_idx.end(), idx) == sample_idx.end()) {
         sample_idx.push_back(idx);
       }
@@ -78,7 +78,7 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
       }
     }
 
-    double inlier_ratio = static_cast<double>(inliers) / n_points;
+    double inlier_ratio = static_cast<double>(inliers) / static_cast<double>(n_points);
     if (inliers > best_inliers) {
       best_inliers = inliers;
       best_velocity = sample_velocity;
@@ -155,7 +155,7 @@ double EgoInlierEstimator::getTopEleEgo(const std::vector<double> &doppler,
         }
       }
     }
-    if (top_el_pts.size() >= total_points) {
+    if (top_el_pts.size() >= static_cast<size_t>(total_points)) {
       break;
     }
   }

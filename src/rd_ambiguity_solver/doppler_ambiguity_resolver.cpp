@@ -36,7 +36,7 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
     solver_params_.rnsc_confidence = sensor_config["rnsc_confidence"].as<double>();
     solver_params_.rnsc_thres = sensor_config["rnsc_thres"].as<double>();
     solver_params_.rnsc_inlier_ratio = sensor_config["rnsc_inlier_ratio"].as<double>();
-    solver_params_.rnsc_max_iter = sensor_config["rnsc_max_iter"].as<double>();
+    solver_params_.rnsc_max_iter = sensor_config["rnsc_max_iter"].as<int>();
     solver_params_.rnsc_alpha = sensor_config["rnsc_alpha"].as<double>();
     solver_params_.med_alpha_up = sensor_config["med_alpha_up"].as<double>();
     solver_params_.med_alpha_down = sensor_config["med_alpha_down"].as<double>();
@@ -284,8 +284,8 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
   }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  std::cout << "[+] Time taken to process a frame: " << duration.count() / 1e6 << " seconds"
-            << std::endl;
+  std::cout << "[+] Time taken to process a frame: " << static_cast<double>(duration.count()) / 1e6
+            << " seconds" << std::endl;
 
   return recovered_points;
 }
@@ -352,8 +352,8 @@ int main(int argc, char *argv[]) {
 
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  std::cout << "[+] Time taken to read the file: " << duration.count() / 1e6 << " seconds"
-            << std::endl;
+  std::cout << "[+] Time taken to read the file: " << static_cast<double>(duration.count()) / 1e6
+            << " seconds" << std::endl;
 
   // Print some details about the playback
   std::cout << "\nConversion complete!" << std::endl;

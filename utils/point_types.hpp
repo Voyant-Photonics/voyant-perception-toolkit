@@ -7,9 +7,11 @@
 #include <pcl/point_types.h>
 
 struct EIGEN_ALIGN16 VoyantPoint {
-  PCL_ADD_POINT4D;
+  double x;
+  double y;
+  double z;
   double radial_vel;
-  uint32_t frame_idx;
+  size_t frame_idx;
   uint32_t point_idx;
   int64_t frame_timestamp_seconds;
   int32_t frame_timestamp_nanoseconds;
@@ -40,7 +42,7 @@ struct EIGEN_ALIGN16 VoyantPoint {
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(
     VoyantPoint,
-    (double, x, x)(double, y, y)(double, z, z)(double, radial_vel, radial_vel)(uint32_t, frame_idx,
+    (double, x, x)(double, y, y)(double, z, z)(double, radial_vel, radial_vel)(size_t, frame_idx,
                                                                                frame_idx)(
         uint32_t, point_idx, point_idx)(int64_t, frame_timestamp_seconds, frame_timestamp_seconds)(
         int32_t, frame_timestamp_nanoseconds,

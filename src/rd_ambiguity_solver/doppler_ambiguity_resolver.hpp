@@ -35,7 +35,7 @@ struct Params {
   double rnsc_confidence;
   double rnsc_thres;
   double rnsc_inlier_ratio;
-  double rnsc_max_iter;
+  int rnsc_max_iter;
   double rnsc_alpha;
   double med_alpha_up;
   double med_alpha_down;
