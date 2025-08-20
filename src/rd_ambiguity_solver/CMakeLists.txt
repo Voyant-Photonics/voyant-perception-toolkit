@@ -9,11 +9,13 @@ endif()
 if(NOT TARGET yaml-cpp)
     find_package(yaml-cpp REQUIRED)
 endif()
+find_package(PCL REQUIRED COMPONENTS common)
 
-add_executable(rng_dop_amb_solver ${CMAKE_CURRENT_SOURCE_DIR}/../../utils/point_cloud_utils.cpp ego_velocity_estimator.cpp doppler_ambiguity_resolver.cpp)
+add_executable(rng_dop_amb_solver ${CMAKE_CURRENT_SOURCE_DIR}/../../utils/point_cloud_utils.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../../utils/point_cloud_logger.cpp ego_velocity_estimator.cpp doppler_ambiguity_resolver.cpp)
 target_link_libraries(rng_dop_amb_solver
     voyant-api::voyant-api
     yaml-cpp
+    ${PCL_LIBRARIES}
 )
 
 # Include the headers from the "include" directory

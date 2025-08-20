@@ -32,6 +32,7 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
   }
 
   size_t n_points = projection_factors.size();
+
   if (n_points < 10) {
     std::vector<double> estimates;
     for (size_t i = 0; i < n; ++i) {

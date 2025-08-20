@@ -1,8 +1,12 @@
+# Copyright (c) 2024-2025 Voyant Photonics, Inc.
+#
+# This example code is licensed under the MIT License.
+# See the LICENSE file in the repository root for full license text.
 
 parameters:
 
-  input_file: "/path/to/your/input.bin"
-  output_file: "/path/to/your/output.csv"
+  input_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T151755.bin"
+  output_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T151755_solved.csv"
 
   # Sensor params
   T: 1.6393442622951e-5 # 16 microseconds
@@ -15,7 +19,7 @@ parameters:
   # Parameters for Probabilistic RANSAC. P-RANSAC changes the number of
   # max_iters depending on the % of inliers found.
   rnsc_confidence: 0.89 # Confidence for P-RANSAC.
-  rnsc_thres: 0.5 # Residual threshold for P-RANSAC.
+  rnsc_thres: 0.35 # Residual threshold for P-RANSAC.
   rnsc_inlier_ratio: 0.1 # AT least 10% inliers are found
   rnsc_max_iter: 1000 # Maximum iterations for P-RANSAC
   rnsc_alpha: 0.75 # This decides the width of boundaries i.e min_boundary = ego - alpha

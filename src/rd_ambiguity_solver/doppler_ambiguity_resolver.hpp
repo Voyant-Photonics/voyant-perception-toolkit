@@ -18,6 +18,8 @@
 #include <voyant_playback.hpp>
 
 #include "ego_velocity_estimator.hpp"
+#include "point_cloud_logger.hpp"
+#include "point_types.hpp"
 
 /*
  * @brief Parameters for the Doppler ambiguity resolver
@@ -57,15 +59,14 @@ class AmbiguitySolver {
   AmbiguitySolver(const std::string &yaml_path);
   ~AmbiguitySolver();
   Params loadParams(const std::string &yaml_path);
-  bool validatePointCoordinates(const PointDataWrapper &pt);
-  std::vector<std::array<double, 12>> Solver(const VoyantFrameWrapper &frame, size_t frame_id);
-  void writeRecoveredPointsToCSV(const std::string &filename,
-                                 const std::vector<std::array<double, 12>> &points);
-  std::pair<std::vector<double>, std::vector<double>> recoverRangeDoppler(
-      std::vector<double> amb_rng, std::vector<double> amb_dop);
+
+  std::vector<VoyantPoint> Solver(const VoyantFrameWrapper &frame, size_t frame_id);
+  std::pair<double, double> recoverSingleRangeDoppler(double amb_rng, double amb_dop);
+
   Params config;
 
  private:
   PointCloudUtils pc_utils_;
-  EgoInlierEstimator ego_solver;
+  EgoInlierEstimator ego_solver_;
+  double C = 3e8;
 };

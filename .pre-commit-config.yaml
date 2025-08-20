@@ -1,3 +1,8 @@
+# Copyright (c) 2024-2025 Voyant Photonics, Inc.
+#
+# This example code is licensed under the MIT License.
+# See the LICENSE file in the repository root for full license text.
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,7 +19,7 @@ repos:
         - "--ignore-words-list=crate"
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.7
+    rev: v20.1.0
     hooks:
     - id: clang-format
 
@@ -22,9 +27,14 @@ repos:
     rev: v1.5.5
     hooks:
       - id: insert-license
-        files: \.(cpp|hpp|h)$
+        name: "Insert License C++/TypeScript"
+        files: \.(cpp|hpp|h|cc|cxx)$  # Added more C++ extensions
+        exclude: ^(build/|\.git/)  # Exclude build dirs
         args:
           - --license-filepath
           - license_header.txt
           - --comment-style
           - //
+        # Force it to run on all matching files, not just staged ones
+        pass_filenames: true
+        always_run: false
