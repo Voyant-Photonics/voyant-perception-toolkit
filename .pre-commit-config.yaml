@@ -22,7 +22,7 @@ repos:
     rev: v1.5.5
     hooks:
       - id: insert-license
-        name: "Insert License C++/TypeScript"
+        name: "Insert License C++"
         files: \.(cpp|hpp|h|cc|cxx)$  # Added more C++ extensions
         args:
           - --license-filepath
