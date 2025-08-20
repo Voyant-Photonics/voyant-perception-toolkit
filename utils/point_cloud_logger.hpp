@@ -21,13 +21,15 @@ class PointCloudLogger {
  public:
   PointCloudLogger();
   ~PointCloudLogger();
-  void writeRecoveredPointsToCSV(const std::string &filename,
-                                 const std::vector<VoyantPoint> &points);
 
+  // Initialize the csv headers
   bool initializeCSV(const std::string &filename);
+
   // Write points immediately (sequential)
   void writePointsSequential(const std::vector<VoyantPoint> &points,
                              const VoyantFrameWrapper &frame);
+
+  // Close the csv properly
   void finalizeCSV();
 
  private:

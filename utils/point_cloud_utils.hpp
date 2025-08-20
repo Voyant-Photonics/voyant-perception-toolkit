@@ -23,14 +23,29 @@ class PointCloudUtils {
   PointCloudUtils();   // Constructor
   ~PointCloudUtils();  // Destructor
 
+  // Convert Range to Frequency
   double rngToFreq(const double &rng, double bw, double T);
+
+  // Convert Doppler to Frequency
   double dopToFreq(const double &d, double lam);
+
+  // Convert Frequency to Range
   double freqToRng(double fr, double bw, double T);
+
+  // Convert Frequency to Doppler
   double freqToDop(double fd, double lam);
+
+  // Cartesian to Spherical conversion
   std::tuple<double, double, double> cart2sphere(const double &x, const double &y, const double &z);
+
+  // Efficient median finder of a vector
   double findMedian(std::vector<double> arr);
+
+  // Spherical to cartesian conversion
   std::tuple<double, double, double> sphere2cart(const double &r, const double &az,
                                                  const double &el);
+
+  // Check if the point is valid
   bool validatePointCoordinates(const PointDataWrapper &pt);
 
   double C = 3e8;  // Speed of light in m/s

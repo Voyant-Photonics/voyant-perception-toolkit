@@ -58,9 +58,14 @@ class AmbiguitySolver {
  public:
   AmbiguitySolver(const std::string &yaml_path);
   ~AmbiguitySolver();
+
+  // Load the parameters from the config file
   Params loadParams(const std::string &yaml_path);
 
+  // Detect the ambiguous points.
   std::vector<VoyantPoint> Solver(const VoyantFrameWrapper &frame, size_t frame_id);
+
+  // Recover the detected ambiguous points
   std::pair<double, double> recoverSingleRangeDoppler(double amb_rng, double amb_dop);
 
   Params config;
