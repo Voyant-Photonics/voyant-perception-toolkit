@@ -5,8 +5,8 @@
 
 parameters:
 
-  input_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T151755.bin"
-  output_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T151755_solved.csv"
+  input_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T152535.bin"
+  output_file: "/media/yash/23C1-3035/Liberty_Dataset/rtpointcloud_data_2023-12-08T152535_solved.csv"
 
   # Sensor params
   T: 1.6393442622951e-5 # 16 microseconds

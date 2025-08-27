@@ -156,11 +156,12 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
   rnsc_diff = abs(top_ele_v_ego - rnsc_v_ego);
   med_diff = abs(top_ele_v_ego - med_v_ego);
   bool use_median_method = (med_diff < rnsc_diff);
-  double rnd_top_ego = std::round(top_ele_v_ego * 10.0) / 10.0;
-  double rnd_med_ego = std::round(med_v_ego * 10.0) / 10.0;
-  double rnd_rnsc_ego = std::round(rnsc_v_ego * 10.0) / 10.0;
+  double rnd_top_ego = std::round(top_ele_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
+  double rnd_med_ego = std::round(med_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
+  double rnd_rnsc_ego = std::round(rnsc_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
 
-  double best_ego = std::round((top_ele_v_ego + med_v_ego + rnsc_v_ego) / 3.0 * 10.0) / 10.0;
+  double best_ego =
+      std::round((top_ele_v_ego + med_v_ego + rnsc_v_ego) / 3.0 * ROUND_FACTOR) / ROUND_FACTOR;
   // Initialize amb mask with correct size before using it.
   amb_mask.resize(ego_velocities.size(), false);
   if (best_ego <= config.min_ego_velocity_for_correction) {
@@ -181,7 +182,8 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
     }
   }
 
-  else if (rnd_top_ego == rnd_med_ego && rnd_med_ego == rnd_rnsc_ego) {
+  else if (std::abs(rnd_top_ego - rnd_med_ego) < EPSILON &&
+           std::abs(rnd_med_ego - rnd_rnsc_ego) < EPSILON) {
     inlier_v_ego = rnsc_v_ego;
     double alpha = config.rnsc_alpha;
     double az_thres_min = rnsc_v_ego - alpha;
@@ -220,7 +222,7 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
       */
       amb_mask[i] = (ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min);
     }
-  } else if (!use_median_method) {
+  } else {
     // std::cout << "[+] Using Ransac logic" << std::endl;
     inlier_v_ego = rnsc_v_ego;
     double alpha = config.rnsc_alpha;
@@ -238,51 +240,39 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
   for (size_t i = 0; i < valid_count; ++i) {
     const auto &original_pt = points[valid_indices[i]];
 
+    // Create base point with common fields
+    VoyantPoint recovered_pt;
+    recovered_pt.frame_idx = frame_id;
+    recovered_pt.point_idx = original_pt.point_index();
+    recovered_pt.frame_timestamp_seconds = frame.header().timestampSeconds();
+    recovered_pt.frame_timestamp_nanoseconds = frame.header().timestampNanoseconds();
+    recovered_pt.nanosecs_since_frame = original_pt.timestamp_nanosecs();
+    recovered_pt.snr_linear = original_pt.snr_linear();
+    recovered_pt.calibrated_reflectance = original_pt.calibrated_reflectance();
+    recovered_pt.noise_mean_estimate = original_pt.noise_mean_estimate();
+    recovered_pt.min_ramp_snr = original_pt.min_ramp_snr();
+    recovered_pt.drop_reason = static_cast<uint16_t>(original_pt.drop_reason());
+
     if (amb_mask[i] && vels[i] > 0.0) {
+      // Recover ambiguous point
       auto [new_rng, new_dop] = recoverSingleRangeDoppler(rng[i], vels[i]);
 
       // Convert back to cartesian
       std::tuple<double, double, double> new_cart =
           PointCloudUtils::sphere2cart(new_rng, az[i], el[i]);
-      double nx = std::get<0>(new_cart);
-      double ny = std::get<1>(new_cart);
-      double nz = std::get<2>(new_cart);
-
-      VoyantPoint recovered_pt;
-      recovered_pt.x = nx;
-      recovered_pt.y = ny;
-      recovered_pt.z = nz;
+      recovered_pt.x = std::get<0>(new_cart);
+      recovered_pt.y = std::get<1>(new_cart);
+      recovered_pt.z = std::get<2>(new_cart);
       recovered_pt.radial_vel = new_dop;
-      recovered_pt.frame_idx = frame_id;
-      recovered_pt.point_idx = original_pt.point_index();
-      recovered_pt.frame_timestamp_seconds = frame.header().timestampSeconds();
-      recovered_pt.frame_timestamp_nanoseconds = frame.header().timestampNanoseconds();
-      recovered_pt.nanosecs_since_frame = original_pt.timestamp_nanosecs();
-      recovered_pt.snr_linear = original_pt.snr_linear();
-      recovered_pt.calibrated_reflectance = original_pt.calibrated_reflectance();
-      recovered_pt.noise_mean_estimate = original_pt.noise_mean_estimate();
-      recovered_pt.min_ramp_snr = original_pt.min_ramp_snr();
-      recovered_pt.drop_reason = static_cast<uint16_t>(original_pt.drop_reason());
-      recovered_points.emplace_back(std::move(recovered_pt));
     } else {
-      // Copy original point
-      VoyantPoint recovered_pt;
+      // Use original coordinates and velocity
       recovered_pt.x = original_pt.x();
       recovered_pt.y = original_pt.y();
       recovered_pt.z = original_pt.z();
       recovered_pt.radial_vel = original_pt.radial_vel();
-      recovered_pt.frame_idx = frame_id;
-      recovered_pt.point_idx = original_pt.point_index();
-      recovered_pt.frame_timestamp_seconds = frame.header().timestampSeconds();
-      recovered_pt.frame_timestamp_nanoseconds = frame.header().timestampNanoseconds();
-      recovered_pt.nanosecs_since_frame = original_pt.timestamp_nanosecs();
-      recovered_pt.snr_linear = original_pt.snr_linear();
-      recovered_pt.calibrated_reflectance = original_pt.calibrated_reflectance();
-      recovered_pt.noise_mean_estimate = original_pt.noise_mean_estimate();
-      recovered_pt.min_ramp_snr = original_pt.min_ramp_snr();
-      recovered_pt.drop_reason = static_cast<uint16_t>(original_pt.drop_reason());
-      recovered_points.emplace_back(std::move(recovered_pt));
     }
+
+    recovered_points.emplace_back(std::move(recovered_pt));
   }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

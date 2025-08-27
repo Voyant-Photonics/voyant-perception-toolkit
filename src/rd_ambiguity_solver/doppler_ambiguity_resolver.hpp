@@ -72,4 +72,6 @@ class AmbiguitySolver {
 
  private:
   EgoInlierEstimator ego_solver_;
+  const double ROUND_FACTOR = 10.0;
+  const double EPSILON = 1e-9;
 };
