@@ -5,79 +5,48 @@
 
 #include "point_cloud_utils.hpp"
 
-PointCloudUtils::PointCloudUtils() {
-  std::cout << "[+] Starting the utils" << std::endl;
-}  // Constructor
-PointCloudUtils::~PointCloudUtils() {
-  std::cout << "[+] Shutting the utils..." << std::endl;
-}  // Destructor
-
-std::vector<double> PointCloudUtils::rngToFreq(const std::vector<double> &rng, double bw,
-                                               double T) {
-  size_t n = rng.size();
-  std::vector<double> frequencies;
-  for (size_t i = 0; i < n; ++i) {
-    double f = (2 * bw * rng[i]) / (C * T);
-    frequencies.push_back(f);
-  }
-  return frequencies;
+double PointCloudUtils::rngToFreq(const double &rng, double bw, double T) {
+  double frequency = (2 * bw * rng) / (C * T);
+  return frequency;
 }
-std::vector<double> PointCloudUtils::dopToFreq(const std::vector<double> &d, double lam) {
-  size_t n = d.size();
-  std::vector<double> frequencies;
-  for (size_t i = 0; i < n; ++i) {
-    double f = (d[i] * 2) / lam;
-    frequencies.push_back(f);
-  }
-  return frequencies;
+double PointCloudUtils::dopToFreq(const double &d, double lam) {
+  double frequency = (d * 2) / lam;
+  return frequency;
 }
 double PointCloudUtils::freqToRng(double fr, double bw, double T) {
   return (fr * C * T) / (2 * bw);
 }
 double PointCloudUtils::freqToDop(double fd, double lam) { return (lam * fd) / 2; }
-std::pair<std::vector<double>, std::vector<double>> PointCloudUtils::getUpDownFreqs(
-    std::vector<double> &rng, std::vector<double> &d, double bw, double T, double lam) {
-  std::vector<double> f_up, f_down, f_rng, f_dop;
-  f_rng = rngToFreq(rng, bw, T);  // Range beat frequency
-  f_dop = dopToFreq(d, lam);      // Doppler beat frequency
 
-  for (size_t i = 0; i < f_rng.size(); ++i) {
-    double fr = f_rng[i];
-    double fd = f_dop[i];
-    f_up.push_back(fr + fd);    // up-chirp beat is range + doppler:
-    f_down.push_back(fr - fd);  // down-chirp beat is range – doppler:
+bool PointCloudUtils::validatePointCoordinates(const PointDataWrapper &pt) {
+  if (std::isnan(pt.x()) || std::isnan(pt.y()) || std::isnan(pt.z()) || std::isinf(pt.x()) ||
+      std::isinf(pt.y()) || std::isinf(pt.z()) ||
+      (pt.x() == 0.0 && pt.y() == 0.0 && pt.z() == 0.0)) {
+    return false;
   }
-  return {f_up, f_down};
+
+  if (pt.drop_reason() != DropReason::SUCCESS) {
+    return false;
+  }
+
+  // Check for unreasonably large coordinates
+  if (std::abs(pt.x()) > MAX_COORD || std::abs(pt.y()) > MAX_COORD ||
+      std::abs(pt.z()) > MAX_COORD) {
+    return false;
+  }
+  return true;
 }
-std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-PointCloudUtils::cart2sphere(const std::vector<double> &x, const std::vector<double> &y,
-                             const std::vector<double> &z) {
-  if (x.size() != y.size() || y.size() != z.size()) {
-    throw std::runtime_error("Vectors r, az, and el must have the same size");
-  }
-  // Convert cartesian coordinates to spherical coordinates.
-  std::vector<double> rng, az, el;
-  size_t n = x.size();
 
-  for (size_t i = 0; i < n; ++i) {
-    double X = x[i];
-    double Y = y[i];
-    double Z = z[i];
-
-    double r = std::sqrt((X * X) + (Y * Y) + (Z * Z));
-    double azi = std::atan2(Y, X);
-    double ele = 0.0;
-    if (std::abs(r) > 1e-8) {  // or some small epsilon
-      double ratio = Z / r;
-      ele = std::asin(ratio);
-    } else {
-      // r is zero or very close
-      ele = 0.0;
-    }
-
-    rng.push_back(r);
-    az.push_back(azi);
-    el.push_back(ele);
+std::tuple<double, double, double> PointCloudUtils::cart2sphere(const double &x, const double &y,
+                                                                const double &z) {
+  double rng = std::sqrt((x * x) + (y * y) + (z * z));
+  double az = std::atan2(y, x);
+  double el = 0.0;
+  if (std::abs(rng) > 1e-8) {  // r is zero or very close or small epsilon
+    double ratio = z / rng;
+    el = std::asin(ratio);
+  } else {
+    el = 0.0;
   }
   return {rng, az, el};
 }
@@ -100,29 +69,11 @@ double PointCloudUtils::findMedian(std::vector<double> arr) {
     return (first_middle + arr[mid]) / 2.0;
   }
 }
-std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-PointCloudUtils::sphere2cart(const std::vector<double> &r, const std::vector<double> &az,
-                             const std::vector<double> &el) {
-  if (r.size() != az.size() || az.size() != el.size()) {
-    throw std::runtime_error("Vectors r, az, and el must have the same size");
-  }
+std::tuple<double, double, double> PointCloudUtils::sphere2cart(const double &r, const double &az,
+                                                                const double &el) {
+  double X = r * std::cos(el) * std::cos(az);
+  double Y = r * std::cos(el) * std::sin(az);
+  double Z = r * std::sin(el);
 
-  std::vector<double> x, y, z;
-  size_t n = r.size();
-
-  for (size_t i = 0; i < n; ++i) {
-    double Ra = r[i];
-    double Az = az[i];
-    double El = el[i];
-
-    double X = Ra * std::cos(El) * std::cos(Az);
-    double Y = Ra * std::cos(El) * std::sin(Az);
-    double Z = Ra * std::sin(El);
-
-    x.push_back(X);
-    y.push_back(Y);
-    z.push_back(Z);
-  }
-
-  return {x, y, z};
+  return {X, Y, Z};
 }

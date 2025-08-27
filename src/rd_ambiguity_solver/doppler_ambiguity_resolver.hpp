@@ -18,6 +18,8 @@
 #include <voyant_playback.hpp>
 
 #include "ego_velocity_estimator.hpp"
+#include "point_cloud_logger.hpp"
+#include "point_types.hpp"
 
 /*
  * @brief Parameters for the Doppler ambiguity resolver
@@ -33,14 +35,14 @@ struct Params {
   double rnsc_confidence;
   double rnsc_thres;
   double rnsc_inlier_ratio;
-  double rnsc_max_iter;
+  int rnsc_max_iter;
   double rnsc_alpha;
   double med_alpha_up;
   double med_alpha_down;
   double med_alpha_up_agg;
   double med_alpha_down_agg;
-  int num_pts_init;
-  int num_pts_recollect;
+  size_t num_pts_init;
+  size_t num_pts_recollect;
   double ego_recollect_threshold;
   double min_ego_velocity_for_correction;
   double ransac_preference_threshold;
@@ -56,16 +58,20 @@ class AmbiguitySolver {
  public:
   AmbiguitySolver(const std::string &yaml_path);
   ~AmbiguitySolver();
+
+  // Load the parameters from the config file
   Params loadParams(const std::string &yaml_path);
-  bool validatePointCoordinates(const PointDataWrapper &pt);
-  std::vector<std::array<double, 12>> Solver(const VoyantFrameWrapper &frame, size_t frame_id);
-  void writeRecoveredPointsToCSV(const std::string &filename,
-                                 const std::vector<std::array<double, 12>> &points);
-  std::pair<std::vector<double>, std::vector<double>> recoverRangeDoppler(
-      std::vector<double> amb_rng, std::vector<double> amb_dop);
+
+  // Detect the ambiguous points.
+  std::vector<VoyantPoint> Solver(const VoyantFrameWrapper &frame, size_t frame_id);
+
+  // Recover the detected ambiguous points
+  std::pair<double, double> recoverSingleRangeDoppler(double amb_rng, double amb_dop);
+
   Params config;
 
  private:
-  PointCloudUtils pc_utils_;
-  EgoInlierEstimator ego_solver;
+  EgoInlierEstimator ego_solver_;
+  const double ROUND_FACTOR = 10.0;
+  const double EPSILON = 1e-9;
 };

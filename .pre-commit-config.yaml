@@ -14,7 +14,7 @@ repos:
         - "--ignore-words-list=crate"
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.7
+    rev: v20.1.0
     hooks:
     - id: clang-format
 
@@ -22,7 +22,8 @@ repos:
     rev: v1.5.5
     hooks:
       - id: insert-license
-        files: \.(cpp|hpp|h)$
+        name: "Insert License C++"
+        files: \.(cpp|hpp|h|cc|cxx)$  # Added more C++ extensions
         args:
           - --license-filepath
           - license_header.txt

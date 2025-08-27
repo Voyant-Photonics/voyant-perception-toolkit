@@ -5,7 +5,7 @@
 
 #include "ego_velocity_estimator.hpp"
 
-EgoInlierEstimator::EgoInlierEstimator(PointCloudUtils &utils) : pc_utils_(utils) {
+EgoInlierEstimator::EgoInlierEstimator() {
   std::cout << "[+] Starting Ego Velocity Estimator" << std::endl;
 }
 
@@ -32,6 +32,7 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
   }
 
   size_t n_points = projection_factors.size();
+
   if (n_points < 10) {
     std::vector<double> estimates;
     for (size_t i = 0; i < n; ++i) {
@@ -50,12 +51,12 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
   int iteration = 0;
 
   std::mt19937 rng(42);
-  std::uniform_int_distribution<> dist(0, n_points - 1);
+  std::uniform_int_distribution<size_t> dist(0, n_points - 1);
 
   while (iteration < max_iterations) {
     std::vector<int> sample_idx;
     while (sample_idx.size() < 3) {
-      int idx = dist(rng);
+      int idx = static_cast<int>(dist(rng));
       if (std::find(sample_idx.begin(), sample_idx.end(), idx) == sample_idx.end()) {
         sample_idx.push_back(idx);
       }
@@ -77,7 +78,7 @@ double EgoInlierEstimator::p_ransac_ego_velocity(const std::vector<double> &azim
       }
     }
 
-    double inlier_ratio = static_cast<double>(inliers) / n_points;
+    double inlier_ratio = static_cast<double>(inliers) / static_cast<double>(n_points);
     if (inliers > best_inliers) {
       best_inliers = inliers;
       best_velocity = sample_velocity;
@@ -124,14 +125,14 @@ std::pair<double, std::vector<double>> EgoInlierEstimator::simpleMedianEstimator
     double ego_vel = doppler[i] / (cosaz[i] * cosel[i]);
     ego_velocities.push_back(ego_vel);
   }
-  double med_ego_vel = pc_utils_.findMedian(ego_velocities);
+  double med_ego_vel = PointCloudUtils::findMedian(ego_velocities);
   return {med_ego_vel, ego_velocities};
 }
 
 double EgoInlierEstimator::getTopEleEgo(const std::vector<double> &doppler,
                                         const std::vector<double> &az,
                                         const std::vector<double> &el, const double vertical_res,
-                                        int total_points = 500) {
+                                        size_t total_points = 500) {
   double VERTICAL_RES_DEG = (vertical_res) * 180.0 / M_PI;  // Radians
 
   std::vector<int> elevation_bins(el.size());
@@ -158,7 +159,7 @@ double EgoInlierEstimator::getTopEleEgo(const std::vector<double> &doppler,
       break;
     }
   }
-  double best_ego = pc_utils_.findMedian(top_el_pts);
+  double best_ego = PointCloudUtils::findMedian(top_el_pts);
 
   return best_ego;
 }

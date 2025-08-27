@@ -21,20 +21,22 @@
 
 class EgoInlierEstimator {
  public:
-  EgoInlierEstimator(PointCloudUtils &utils);  // Constructor
-  ~EgoInlierEstimator();                       // Destructor
+  EgoInlierEstimator();   // Constructor
+  ~EgoInlierEstimator();  // Destructor
+
+  // A simple ego velocity estimator based on probabilistic RANSAC.
   double p_ransac_ego_velocity(const std::vector<double> &azimuth,
                                const std::vector<double> &elevation,
                                const std::vector<double> &doppler, double confidence,
                                double threshold, int max_iterations, double rnsc_inlier_ratio);
 
+  // A simple median based ego velocity estimator
   std::pair<double, std::vector<double>> simpleMedianEstimator(const std::vector<double> &doppler,
                                                                const std::vector<double> &cosaz,
                                                                const std::vector<double> &cosel);
 
+  // Find the ego velocity of top elevation points, where number of points is total_points
   double getTopEleEgo(const std::vector<double> &doppler, const std::vector<double> &az,
-                      const std::vector<double> &el, const double vertical_res, int total_points);
-
- private:
-  PointCloudUtils &pc_utils_;
+                      const std::vector<double> &el, const double vertical_res,
+                      size_t total_points);
 };

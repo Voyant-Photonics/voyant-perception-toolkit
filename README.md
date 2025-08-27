@@ -25,7 +25,7 @@ cd voyant-perception-toolkit
 cd src/rd_ambiguity_solver/
 mkdir build
 cd build
-cmake ..
+cmake .. #or cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 
@@ -33,6 +33,11 @@ make
 
 Before running the **RDAS** tool, ensure that the config file is set up correctly. You can find the configuration file in `config/solver_params.yaml`. Adjust the parameters as needed for your specific use case. The executable will be located in the `bin` directory inside the build folder. Read the [README](config/README.md) in the `config` directory for detailed parameter descriptions.
 
+> You must edit the filepaths at the top of `solver_params.yaml` to run the pipeline.
+
 ```bash
 ./bin/rng_dop_amb_solver ../../../config/solver_params.yaml
 ```
+
+>This will output a `.csv` file. Use the [csv_to_bin](https://voyant-photonics.github.io/03_tools/unsupported_tools.html#voyant_csv_to_bin) to convert it into a `.bin` file.
+To convert the `.bin` into a ROS2 compatible `.mcap` file use the [bin_to_mcap](https://github.com/Voyant-Photonics/voyant-ros?tab=readme-ov-file#converting-bin-files-to-ros2-bag-format)

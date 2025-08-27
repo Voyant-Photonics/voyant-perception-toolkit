@@ -11,30 +11,39 @@
 #include <random>
 #include <tuple>
 #include <vector>
+#include <voyant_frame_wrapper.hpp>
 
 /*
  * @class PointCloudUtils
  * @brief A class that performs coordinate transforms and other utilities
  */
 
-class PointCloudUtils {
- public:
-  PointCloudUtils();   // Constructor
-  ~PointCloudUtils();  // Destructor
+namespace PointCloudUtils {
+// Convert Range to Frequency
+double rngToFreq(const double &rng, double bw, double T);
 
-  std::vector<double> rngToFreq(const std::vector<double> &rng, double bw, double T);
-  std::vector<double> dopToFreq(const std::vector<double> &d, double lam);
-  double freqToRng(double fr, double bw, double T);
-  double freqToDop(double fd, double lam);
-  std::pair<std::vector<double>, std::vector<double>> getUpDownFreqs(std::vector<double> &rng,
-                                                                     std::vector<double> &d,
-                                                                     double bw, double T,
-                                                                     double lam);
-  std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> cart2sphere(
-      const std::vector<double> &x, const std::vector<double> &y, const std::vector<double> &z);
-  double findMedian(std::vector<double> arr);
-  std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> sphere2cart(
-      const std::vector<double> &r, const std::vector<double> &az, const std::vector<double> &el);
+// Convert Doppler to Frequency
+double dopToFreq(const double &d, double lam);
 
-  double C = 3e8;  // Speed of light in m/s
-};
+// Convert Frequency to Range
+double freqToRng(double fr, double bw, double T);
+
+// Convert Frequency to Doppler
+double freqToDop(double fd, double lam);
+
+// Cartesian to Spherical conversion
+std::tuple<double, double, double> cart2sphere(const double &x, const double &y, const double &z);
+
+// Efficient median finder of a vector
+double findMedian(std::vector<double> arr);
+
+// Spherical to cartesian conversion
+std::tuple<double, double, double> sphere2cart(const double &r, const double &az, const double &el);
+
+// Check if the point is valid
+bool validatePointCoordinates(const PointDataWrapper &pt);
+
+constexpr double C = 3e8;  // Speed of light in m/s
+
+constexpr double MAX_COORD = 1000.0;
+}  // namespace PointCloudUtils

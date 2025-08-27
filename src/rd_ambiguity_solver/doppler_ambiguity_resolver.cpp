@@ -5,8 +5,7 @@
 
 #include "doppler_ambiguity_resolver.hpp"
 
-AmbiguitySolver::AmbiguitySolver(const std::string &yaml_path)
-    : pc_utils_(), ego_solver(pc_utils_) {
+AmbiguitySolver::AmbiguitySolver(const std::string &yaml_path) : ego_solver_() {
   std::cout << "[+] Starting the solver" << std::endl;
   config = loadParams(yaml_path);
 }
@@ -36,14 +35,14 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
     solver_params_.rnsc_confidence = sensor_config["rnsc_confidence"].as<double>();
     solver_params_.rnsc_thres = sensor_config["rnsc_thres"].as<double>();
     solver_params_.rnsc_inlier_ratio = sensor_config["rnsc_inlier_ratio"].as<double>();
-    solver_params_.rnsc_max_iter = sensor_config["rnsc_max_iter"].as<double>();
+    solver_params_.rnsc_max_iter = sensor_config["rnsc_max_iter"].as<int>();
     solver_params_.rnsc_alpha = sensor_config["rnsc_alpha"].as<double>();
     solver_params_.med_alpha_up = sensor_config["med_alpha_up"].as<double>();
     solver_params_.med_alpha_down = sensor_config["med_alpha_down"].as<double>();
     solver_params_.med_alpha_up_agg = sensor_config["med_alpha_up_agg"].as<double>();
     solver_params_.med_alpha_down_agg = sensor_config["med_alpha_down_agg"].as<double>();
-    solver_params_.num_pts_init = sensor_config["num_pts_init"].as<int>();
-    solver_params_.num_pts_recollect = sensor_config["num_pts_recollect"].as<int>();
+    solver_params_.num_pts_init = sensor_config["num_pts_init"].as<size_t>();
+    solver_params_.num_pts_recollect = sensor_config["num_pts_recollect"].as<size_t>();
     solver_params_.ego_recollect_threshold = sensor_config["ego_recollect_threshold"].as<double>();
     solver_params_.min_ego_velocity_for_correction =
         sensor_config["min_ego_velocity_for_correction"].as<double>();
@@ -59,325 +58,227 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
   return solver_params_;
 }
 
-std::pair<std::vector<double>, std::vector<double>> AmbiguitySolver::recoverRangeDoppler(
-    std::vector<double> amb_rng, std::vector<double> amb_dop) {
-  std::vector<double> new_rng, new_dop, fr_up, fr_down;
-  std::pair<std::vector<double>, std::vector<double>> chirps =
-      pc_utils_.getUpDownFreqs(amb_rng, amb_dop, config.BW, config.T, config.LAMBDA);
-  fr_up = std::get<0>(chirps);
-  fr_down = std::get<1>(chirps);
+std::pair<double, double> AmbiguitySolver::recoverSingleRangeDoppler(double amb_rng,
+                                                                     double amb_dop) {
+  double f_rng =
+      PointCloudUtils::rngToFreq(amb_rng, config.BW, config.T);  // Convert Range to frequency
+  double f_dop =
+      PointCloudUtils::dopToFreq(amb_dop, config.LAMBDA);  // Convert Doppler to Frequency.
 
-  for (size_t i = 0; i < fr_up.size(); ++i) {
-    double fup = fr_up[i];
-    double fdnw = fr_down[i];
+  double f_up = (f_rng + f_dop);
+  double f_down = (f_rng - f_dop);
 
-    if (fup < fdnw) {
-      fup = -fup;
-    } else if (fdnw < fup) {
-      fdnw = -fdnw;
-    }
-
-    // Calculate the new Range and Doppler frequencies from new Up and Down Chirps.
-    double r_new = pc_utils_.freqToRng(((fup + fdnw) / 2), config.BW, config.T);
-    double d_new = pc_utils_.freqToDop(((fup - fdnw) / 2), config.LAMBDA);
-
-    new_rng.push_back(r_new);
-    new_dop.push_back(d_new);
+  if (f_up < f_down) {
+    f_up = -f_up;
+  } else if (f_down < f_up) {
+    f_down = -f_down;
   }
+  double r_new = PointCloudUtils::freqToRng(((f_up + f_down) / 2), config.BW, config.T);
+  double d_new = PointCloudUtils::freqToDop(((f_up - f_down) / 2), config.LAMBDA);
 
-  return {new_rng, new_dop};
+  return {r_new, d_new};
 }
 
-void AmbiguitySolver::writeRecoveredPointsToCSV(const std::string &filename,
-                                                const std::vector<std::array<double, 12>> &points) {
-  std::ofstream file(filename);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << filename << std::endl;
-    return;
-  }
-
-  // Write header
-  file << "x,y,z,doppler,point_idx,frame_idx,timestamp,drop_reason,snr_linear,"
-          "calibrated_reflectance,noise_mean_estimate,min_ramp_snr\n";
-
-  // Write data
-  for (const auto &row : points) {
-    for (size_t i = 0; i < row.size(); ++i) {
-      file << row[i];
-      if (i != row.size() - 1) {
-        file << ",";
-      }
-    }
-    file << "\n";
-  }
-
-  file.close();
-  std::cout << "Saved file at: " << filename << std::endl;
-}
-
-bool AmbiguitySolver::validatePointCoordinates(const PointDataWrapper &pt) {
-  if (std::isnan(pt.x()) || std::isnan(pt.y()) || std::isnan(pt.z()) || std::isinf(pt.x()) ||
-      std::isinf(pt.y()) || std::isinf(pt.z()) ||
-      (pt.x() == 0.0 && pt.y() == 0.0 && pt.z() == 0.0)) {
-    return false;
-  }
-
-  if (pt.drop_reason() != DropReason::SUCCESS) {
-    return false;
-  }
-
-  // Check for unreasonably large coordinates
-  constexpr double MAX_COORD = 1000.0;
-  if (std::abs(pt.x()) > MAX_COORD || std::abs(pt.y()) > MAX_COORD ||
-      std::abs(pt.z()) > MAX_COORD) {
-    return false;
-  }
-  return true;
-}
-
-std::vector<std::array<double, 12>> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame,
-                                                            size_t frame_id) {
-  std::vector<double> xs, ys, zs, vels, snrs, calibrated_reflectances, noise_mean_estimates,
-      min_ramp_snrs;
-  std::vector<uint32_t> timestamps, pnt_idxs;
-  std::vector<uint8_t> drop_rsns;
-  std::vector<std::array<double, 12>> recovered_points;
-
+std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame, size_t frame_id) {
   const auto &points = frame.points();
+  std::vector<VoyantPoint> recovered_points;
 
-  for (const auto &pt : points) {
-    bool is_valid = validatePointCoordinates(pt);  // Check if the point is valid.
-    if (is_valid) {
-      xs.push_back(pt.x());
-      ys.push_back(pt.y());
-      zs.push_back(pt.z());
-      vels.push_back(pt.radial_vel());
-      timestamps.push_back(pt.timestamp_nanosecs());
-      drop_rsns.push_back(static_cast<uint8_t>(pt.drop_reason()));
-      pnt_idxs.push_back(pt.point_index());
-      snrs.push_back(pt.snr_linear());
-      calibrated_reflectances.push_back(pt.calibrated_reflectance());
-      noise_mean_estimates.push_back(pt.noise_mean_estimate());
-      min_ramp_snrs.push_back(pt.min_ramp_snr());
+  if (points.empty()) {
+    return recovered_points;
+  }
+  auto start = std::chrono::high_resolution_clock::now();
+
+  // Create filtered view of valid points
+  std::vector<size_t> valid_indices;
+  valid_indices.reserve(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    if (PointCloudUtils::validatePointCoordinates(points[i])) {  // Check if the point is valid.
+      valid_indices.emplace_back(i);
     }
   }
+  if (valid_indices.empty()) {
+    return recovered_points;
+  }
 
-  if (!xs.empty()) {
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<double> rng, az, el, cos_az, cos_el;
-    std::vector<double> amb_rng, amb_az, amb_el, amb_dop;
-    std::vector<double> nx, ny, nz;
-    double inlier_v_ego = 0.0;
-    std::vector<bool> amb_mask;
+  const size_t valid_count = valid_indices.size();
+
+  // Process the coordinates directly from the pointcloud
+  std::vector<double> rng(valid_count), az(valid_count), el(valid_count);
+  std::vector<double> vels(valid_count), cos_az(valid_count), cos_el(valid_count);
+
+  for (size_t i = 0; i < valid_count; ++i) {
+    const auto &pt = points[valid_indices[i]];
+    double x = pt.x(), y = pt.y(), z = pt.z();
+    double doppler = pt.radial_vel();
 
     // Convert to Polar Coordinates
-    std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> polar_coors =
-        pc_utils_.cart2sphere(xs, ys, zs);
-    rng = std::get<0>(polar_coors);
-    az = std::get<1>(polar_coors);
-    el = std::get<2>(polar_coors);
+    std::tuple<double, double, double> polar_coors = PointCloudUtils::cart2sphere(x, y, z);
 
-    // Reserve space for safety
-    cos_az.reserve(az.size());
-    cos_el.reserve(el.size());
-    for (size_t i = 0; i < az.size(); ++i) {
-      cos_az.push_back(cos(az[i]));
-      cos_el.push_back(cos(el[i]));
-    }
+    rng[i] = std::get<0>(polar_coors);
+    az[i] = std::get<1>(polar_coors);
+    el[i] = std::get<2>(polar_coors);
+    vels[i] = doppler;
 
-    // First get the RANSAC based ego vel
-    double rnsc_v_ego =
-        ego_solver.p_ransac_ego_velocity(az, el, vels, config.rnsc_confidence, config.rnsc_thres,
-                                         config.rnsc_max_iter, config.rnsc_inlier_ratio);
-
-    // Get top elevation's ego
-    double top_ele_v_ego =
-        ego_solver.getTopEleEgo(vels, az, el, config.VERTICAL_RES_DEG, config.num_pts_init);
-
-    // Get the simple median ego velocity
-    std::vector<double> ego_velocities;
-    double med_v_ego;
-    std::pair<double, std::vector<double>> med_estimator =
-        ego_solver.simpleMedianEstimator(vels, cos_az, cos_el);
-    med_v_ego = std::get<0>(med_estimator);
-    ego_velocities = std::get<1>(med_estimator);
-
-    double rnsc_diff = abs(top_ele_v_ego - rnsc_v_ego);
-    double med_diff = abs(top_ele_v_ego - med_v_ego);
-
-    // Recollection step
-    if (med_diff >= config.ego_recollect_threshold && rnsc_diff >= config.ego_recollect_threshold) {
-      // Recollect more points as this probably means the previously collected points
-      // were noisy
-      top_ele_v_ego =
-          ego_solver.getTopEleEgo(vels, az, el, config.VERTICAL_RES_DEG, config.num_pts_recollect);
-    }
-    rnsc_diff = abs(top_ele_v_ego - rnsc_v_ego);
-    med_diff = abs(top_ele_v_ego - med_v_ego);
-    bool use_median_method = (med_diff < rnsc_diff);
-    double rnd_top_ego = std::round(top_ele_v_ego * 10.0) / 10.0;
-    double rnd_med_ego = std::round(med_v_ego * 10.0) / 10.0;
-    double rnd_rnsc_ego = std::round(rnsc_v_ego * 10.0) / 10.0;
-
-    double best_ego = std::round((top_ele_v_ego + med_v_ego + rnsc_v_ego) / 3.0 * 10.0) / 10.0;
-    // Initialize amb mask with correct size before using it.
-    amb_mask.resize(ego_velocities.size(), false);
-    if (best_ego <= config.min_ego_velocity_for_correction) {
-      // std::cout << "Skipping correction, no ambiguous points" << best_ego << std::endl;
-      inlier_v_ego = rnsc_v_ego;
-      amb_mask.assign(ego_velocities.size(), false);
-    }
-
-    else if (med_diff <= config.ransac_preference_threshold &&
-             rnsc_diff <= config.ransac_preference_threshold) {
-      inlier_v_ego = rnsc_v_ego;
-      double alpha = config.rnsc_alpha;
-      double az_thres_min = rnsc_v_ego - alpha;
-      double az_thres_max = rnsc_v_ego + alpha;
-
-      amb_mask.resize(ego_velocities.size());
-      for (size_t i = 0; i < ego_velocities.size(); ++i) {
-        amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
-      }
-      // std::cout << "[+] Using Ransac logic" << std::endl;
-    }
-
-    else if (rnd_top_ego == rnd_med_ego && rnd_med_ego == rnd_rnsc_ego) {
-      // std::cout << "[+] Looks like all the vels are same, prefer RANSAC" << std::endl;
-      inlier_v_ego = rnsc_v_ego;
-      double alpha = config.rnsc_alpha;
-      double az_thres_min = rnsc_v_ego - alpha;
-      double az_thres_max = rnsc_v_ego + alpha;
-
-      amb_mask.resize(ego_velocities.size());
-      for (size_t i = 0; i < ego_velocities.size(); ++i) {
-        amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
-      }
-      // std::cout << "[+] Using Ransac logic AGAIN" << std::endl;
-    }
-
-    else if (use_median_method) {
-      inlier_v_ego = med_v_ego;
-      // std::cout << "[+] Using median logic" << inlier_v_ego << std::endl;
-      std::vector<double> abs_devs;
-      for (double v : ego_velocities) {
-        abs_devs.push_back(std::abs(v - inlier_v_ego));
-      }
-      double mad = pc_utils_.findMedian(abs_devs);  // Use Median Absolute Deviation when
-                                                    // using median or Std when using mean
-
-      double alpha_up = config.med_alpha_up;
-      double alpha_dnw = config.med_alpha_down;
-      if (med_diff >= config.med_diff_aggr_thres && top_ele_v_ego >= config.top_ego_conf_th) {
-        // std::cout << "Aggressive alpha" << std::endl;
-        alpha_dnw = config.med_alpha_down_agg;
-        alpha_up = config.med_alpha_up_agg;
-      }
-
-      double az_thres_min = inlier_v_ego - alpha_dnw * mad;
-      double az_thres_max = inlier_v_ego + alpha_up * mad;
-
-      amb_mask.resize(ego_velocities.size());
-      for (size_t i = 0; i < ego_velocities.size(); ++i) {
-        /*
-        TODO: Find a better logic such that we don't have to
-        invert the mask logic for RANSAC and Median based ego selectors
-        */
-        amb_mask[i] = (ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min);
-      }
-    } else if (!use_median_method) {
-      // std::cout << "[+] Using Ransac logic" << std::endl;
-      inlier_v_ego = rnsc_v_ego;
-      double alpha = config.rnsc_alpha;
-      double az_thres_min = rnsc_v_ego - alpha;
-      double az_thres_max = rnsc_v_ego + alpha;
-
-      amb_mask.resize(ego_velocities.size());
-      for (size_t i = 0; i < ego_velocities.size(); ++i) {
-        amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
-      }
-    }
-
-    // Reserve space for safety
-    amb_rng.clear();
-    amb_az.clear();
-    amb_el.clear();
-    amb_dop.clear();
-
-    size_t amb_count = std::count(amb_mask.begin(), amb_mask.end(), true);
-    amb_rng.reserve(amb_count);
-    amb_az.reserve(amb_count);
-    amb_el.reserve(amb_count);
-    amb_dop.reserve(amb_count);
-
-    std::vector<size_t> amb_indices;
-    for (size_t i = 0; i < amb_mask.size(); ++i) {
-      if (amb_mask[i] && vels[i] > 0.0) {
-        // Here filter out the points that are in opposite doppler, hence a portion
-        // of the dynamic object problem is solved
-        amb_indices.push_back(i);
-        amb_rng.push_back(rng[i]);
-        amb_az.push_back(az[i]);
-        amb_el.push_back(el[i]);
-        amb_dop.push_back(vels[i]);
-      } else {
-        std::array<double, 12> row = {xs[i],
-                                      ys[i],
-                                      zs[i],
-                                      vels[i],
-                                      static_cast<double>(pnt_idxs[i]),
-                                      static_cast<double>(frame_id),
-                                      static_cast<double>(timestamps[i]),
-                                      static_cast<double>(drop_rsns[i]),
-                                      snrs[i],
-                                      calibrated_reflectances[i],
-                                      noise_mean_estimates[i],
-                                      min_ramp_snrs[i]};
-        recovered_points.push_back(row);
-      }
-    }
-    if (!amb_rng.empty()) {
-      std::cout << "Processing " << amb_rng.size() << " ambiguous points" << std::endl;
-
-      std::pair<std::vector<double>, std::vector<double>> recovered_rngs_dops =
-          recoverRangeDoppler(amb_rng, amb_dop);
-      std::vector<double> new_rng = std::get<0>(recovered_rngs_dops);
-      std::vector<double> new_dop = std::get<1>(recovered_rngs_dops);
-      std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> new_carts =
-          pc_utils_.sphere2cart(new_rng, amb_az, amb_el);
-      nx = std::get<0>(new_carts);
-      ny = std::get<1>(new_carts);
-      nz = std::get<2>(new_carts);
-
-      for (size_t j = 0; j < amb_indices.size(); ++j) {
-        size_t original_idx = amb_indices[j];
-        std::array<double, 12> row = {
-            nx[j], ny[j], nz[j],
-            new_dop[j],                                   // Use j for recovered data
-            static_cast<double>(pnt_idxs[original_idx]),  // Use
-                                                          // original_idx
-                                                          // for metadata
-            static_cast<double>(frame_id), static_cast<double>(timestamps[original_idx]),
-            static_cast<double>(drop_rsns[original_idx]), snrs[original_idx],
-            calibrated_reflectances[original_idx], noise_mean_estimates[original_idx],
-            min_ramp_snrs[original_idx]};
-        recovered_points.push_back(row);
-      }
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "[+] Time taken to process a frame: " << duration.count() / 1e6 << " seconds"
-              << std::endl;
+    cos_az[i] = std::cos(az[i]);
+    cos_el[i] = std::cos(el[i]);
   }
-  // Clear for next frame
-  xs.clear();
-  ys.clear();
-  zs.clear();
-  vels.clear();
-  timestamps.clear();
-  drop_rsns.clear();
-  pnt_idxs.clear();
-  // }
+
+  double inlier_v_ego = 0.0;
+  std::vector<bool> amb_mask(valid_count, false);
+
+  // First get the RANSAC based ego vel
+  double rnsc_v_ego =
+      ego_solver_.p_ransac_ego_velocity(az, el, vels, config.rnsc_confidence, config.rnsc_thres,
+                                        config.rnsc_max_iter, config.rnsc_inlier_ratio);
+
+  // Get top elevation's ego
+  double top_ele_v_ego =
+      ego_solver_.getTopEleEgo(vels, az, el, config.VERTICAL_RES_DEG, config.num_pts_init);
+
+  // Get the simple median ego velocity
+  std::vector<double> ego_velocities;
+  double med_v_ego;
+  std::pair<double, std::vector<double>> med_estimator =
+      ego_solver_.simpleMedianEstimator(vels, cos_az, cos_el);
+  med_v_ego = std::get<0>(med_estimator);
+  ego_velocities = std::get<1>(med_estimator);
+
+  double rnsc_diff = abs(top_ele_v_ego - rnsc_v_ego);
+  double med_diff = abs(top_ele_v_ego - med_v_ego);
+
+  // Recollection step
+  if (med_diff >= config.ego_recollect_threshold && rnsc_diff >= config.ego_recollect_threshold) {
+    // Recollect more points as this probably means the previously collected points
+    // were noisy
+    top_ele_v_ego =
+        ego_solver_.getTopEleEgo(vels, az, el, config.VERTICAL_RES_DEG, config.num_pts_recollect);
+  }
+  rnsc_diff = abs(top_ele_v_ego - rnsc_v_ego);
+  med_diff = abs(top_ele_v_ego - med_v_ego);
+  bool use_median_method = (med_diff < rnsc_diff);
+  double rnd_top_ego = std::round(top_ele_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
+  double rnd_med_ego = std::round(med_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
+  double rnd_rnsc_ego = std::round(rnsc_v_ego * ROUND_FACTOR) / ROUND_FACTOR;
+
+  double best_ego =
+      std::round((top_ele_v_ego + med_v_ego + rnsc_v_ego) / 3.0 * ROUND_FACTOR) / ROUND_FACTOR;
+  // Initialize amb mask with correct size before using it.
+  amb_mask.resize(ego_velocities.size(), false);
+  if (best_ego <= config.min_ego_velocity_for_correction) {
+    inlier_v_ego = rnsc_v_ego;
+    amb_mask.assign(ego_velocities.size(), false);
+  }
+
+  else if (med_diff <= config.ransac_preference_threshold &&
+           rnsc_diff <= config.ransac_preference_threshold) {
+    inlier_v_ego = rnsc_v_ego;
+    double alpha = config.rnsc_alpha;
+    double az_thres_min = rnsc_v_ego - alpha;
+    double az_thres_max = rnsc_v_ego + alpha;
+
+    amb_mask.resize(ego_velocities.size());
+    for (size_t i = 0; i < ego_velocities.size(); ++i) {
+      amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
+    }
+  }
+
+  else if (std::abs(rnd_top_ego - rnd_med_ego) < EPSILON &&
+           std::abs(rnd_med_ego - rnd_rnsc_ego) < EPSILON) {
+    inlier_v_ego = rnsc_v_ego;
+    double alpha = config.rnsc_alpha;
+    double az_thres_min = rnsc_v_ego - alpha;
+    double az_thres_max = rnsc_v_ego + alpha;
+
+    amb_mask.resize(ego_velocities.size());
+    for (size_t i = 0; i < ego_velocities.size(); ++i) {
+      amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
+    }
+  }
+
+  else if (use_median_method) {
+    inlier_v_ego = med_v_ego;
+    std::vector<double> abs_devs;
+    for (double v : ego_velocities) {
+      abs_devs.push_back(std::abs(v - inlier_v_ego));
+    }
+    double mad = PointCloudUtils::findMedian(abs_devs);  // Use Median Absolute Deviation when
+                                                         // using median or Std when using mean
+
+    double alpha_up = config.med_alpha_up;
+    double alpha_dnw = config.med_alpha_down;
+    if (med_diff >= config.med_diff_aggr_thres && top_ele_v_ego >= config.top_ego_conf_th) {
+      alpha_dnw = config.med_alpha_down_agg;
+      alpha_up = config.med_alpha_up_agg;
+    }
+
+    double az_thres_min = inlier_v_ego - alpha_dnw * mad;
+    double az_thres_max = inlier_v_ego + alpha_up * mad;
+
+    amb_mask.resize(ego_velocities.size());
+    for (size_t i = 0; i < ego_velocities.size(); ++i) {
+      /*
+      TODO: Find a better logic such that we don't have to
+      invert the mask logic for RANSAC and Median based ego selectors
+      */
+      amb_mask[i] = (ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min);
+    }
+  } else {
+    // std::cout << "[+] Using Ransac logic" << std::endl;
+    inlier_v_ego = rnsc_v_ego;
+    double alpha = config.rnsc_alpha;
+    double az_thres_min = rnsc_v_ego - alpha;
+    double az_thres_max = rnsc_v_ego + alpha;
+
+    amb_mask.resize(ego_velocities.size());
+    for (size_t i = 0; i < ego_velocities.size(); ++i) {
+      amb_mask[i] = !((ego_velocities[i] <= az_thres_max) && (ego_velocities[i] >= az_thres_min));
+    }
+  }
+
+  recovered_points.reserve(valid_count);
+
+  for (size_t i = 0; i < valid_count; ++i) {
+    const auto &original_pt = points[valid_indices[i]];
+
+    // Create base point with common fields
+    VoyantPoint recovered_pt;
+    recovered_pt.frame_idx = frame_id;
+    recovered_pt.point_idx = original_pt.point_index();
+    recovered_pt.frame_timestamp_seconds = frame.header().timestampSeconds();
+    recovered_pt.frame_timestamp_nanoseconds = frame.header().timestampNanoseconds();
+    recovered_pt.nanosecs_since_frame = original_pt.timestamp_nanosecs();
+    recovered_pt.snr_linear = original_pt.snr_linear();
+    recovered_pt.calibrated_reflectance = original_pt.calibrated_reflectance();
+    recovered_pt.noise_mean_estimate = original_pt.noise_mean_estimate();
+    recovered_pt.min_ramp_snr = original_pt.min_ramp_snr();
+    recovered_pt.drop_reason = static_cast<uint16_t>(original_pt.drop_reason());
+
+    if (amb_mask[i] && vels[i] > 0.0) {
+      // Recover ambiguous point
+      auto [new_rng, new_dop] = recoverSingleRangeDoppler(rng[i], vels[i]);
+
+      // Convert back to cartesian
+      std::tuple<double, double, double> new_cart =
+          PointCloudUtils::sphere2cart(new_rng, az[i], el[i]);
+      recovered_pt.x = std::get<0>(new_cart);
+      recovered_pt.y = std::get<1>(new_cart);
+      recovered_pt.z = std::get<2>(new_cart);
+      recovered_pt.radial_vel = new_dop;
+    } else {
+      // Use original coordinates and velocity
+      recovered_pt.x = original_pt.x();
+      recovered_pt.y = original_pt.y();
+      recovered_pt.z = original_pt.z();
+      recovered_pt.radial_vel = original_pt.radial_vel();
+    }
+
+    recovered_points.emplace_back(std::move(recovered_pt));
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  std::cout << "[+] Time taken to process a frame: " << static_cast<double>(duration.count()) / 1e6
+            << " seconds" << std::endl;
+
   return recovered_points;
 }
 
@@ -391,7 +292,8 @@ int main(int argc, char *argv[]) {
                                                // argument
   // Create the playback instance
   AmbiguitySolver rngDopSolver(yaml_file_path);
-  VoyantPlayback player;
+  PointCloudLogger csv_logger;  // Initialize the logger
+  VoyantPlayback player(0.0);   // Setting this to 0.0 to playback as fast as possible.
   if (!player.isValid()) {
     std::cerr << "Failed to create VoyantPlayback instance: " << player.getLastError() << std::endl;
     return EXIT_FAILURE;
@@ -404,6 +306,12 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  std::filesystem::path OutfilePath = std::filesystem::path(rngDopSolver.config.output_file);
+  if (!csv_logger.initializeCSV(OutfilePath)) {
+    std::cerr << "Failed to initialize CSV file!" << std::endl;
+    return EXIT_FAILURE;
+  }
+
   if (rngDopSolver.config.output_file.empty()) {
     std::cerr << "Output path cannot be empty" << std::endl;
     return EXIT_FAILURE;
@@ -413,18 +321,21 @@ int main(int argc, char *argv[]) {
   std::filesystem::path filePath = std::filesystem::path(rngDopSolver.config.input_file);
   auto start = std::chrono::high_resolution_clock::now();
 
-  std::vector<std::array<double, 12>> recovered_cloud;
+  std::vector<VoyantPoint> recovered_cloud;
   while (player.nextFrame()) {
     size_t frameIndex = player.currentFrameIndex();
     std::cout << "[+] Processing frame: " << frameIndex << std::endl;
     const VoyantFrameWrapper &frame = player.currentFrame();
+
     // Start the solver
-    std::vector<std::array<double, 12>> recovered_points = rngDopSolver.Solver(frame, frameIndex);
-    recovered_cloud.insert(recovered_cloud.end(), recovered_points.begin(), recovered_points.end());
+    std::vector<VoyantPoint> recovered_points = rngDopSolver.Solver(frame, frameIndex);
+
+    // Write points immediately to CSV
+    csv_logger.writePointsSequential(recovered_points, frame);
   }
-  // Save the output to desired file
-  std::filesystem::path OutfilePath = std::filesystem::path(rngDopSolver.config.output_file);
-  rngDopSolver.writeRecoveredPointsToCSV(OutfilePath, recovered_cloud);
+  // Close the CSV file
+  csv_logger.finalizeCSV();
+
   // Check if we exited the loop due to an error
   if (!player.getLastError().empty()) {
     std::cerr << "[-] Error during playback: " << player.getLastError() << std::endl;
@@ -433,8 +344,8 @@ int main(int argc, char *argv[]) {
 
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  std::cout << "[+] Time taken to read the file: " << duration.count() / 1e6 << " seconds"
-            << std::endl;
+  std::cout << "[+] Time taken to read the file: " << static_cast<double>(duration.count()) / 1e6
+            << " seconds" << std::endl;
 
   // Print some details about the playback
   std::cout << "\nConversion complete!" << std::endl;
