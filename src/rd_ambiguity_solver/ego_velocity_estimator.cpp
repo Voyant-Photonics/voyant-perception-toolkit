@@ -5,7 +5,7 @@
 
 #include "ego_velocity_estimator.hpp"
 
-EgoInlierEstimator::EgoInlierEstimator(PointCloudUtils &utils) : pc_utils_(utils) {
+EgoInlierEstimator::EgoInlierEstimator() {
   std::cout << "[+] Starting Ego Velocity Estimator" << std::endl;
 }
 
@@ -125,14 +125,14 @@ std::pair<double, std::vector<double>> EgoInlierEstimator::simpleMedianEstimator
     double ego_vel = doppler[i] / (cosaz[i] * cosel[i]);
     ego_velocities.push_back(ego_vel);
   }
-  double med_ego_vel = pc_utils_.findMedian(ego_velocities);
+  double med_ego_vel = PointCloudUtils::findMedian(ego_velocities);
   return {med_ego_vel, ego_velocities};
 }
 
 double EgoInlierEstimator::getTopEleEgo(const std::vector<double> &doppler,
                                         const std::vector<double> &az,
                                         const std::vector<double> &el, const double vertical_res,
-                                        int total_points = 500) {
+                                        size_t total_points = 500) {
   double VERTICAL_RES_DEG = (vertical_res) * 180.0 / M_PI;  // Radians
 
   std::vector<int> elevation_bins(el.size());
@@ -155,11 +155,11 @@ double EgoInlierEstimator::getTopEleEgo(const std::vector<double> &doppler,
         }
       }
     }
-    if (top_el_pts.size() >= static_cast<size_t>(total_points)) {
+    if (top_el_pts.size() >= total_points) {
       break;
     }
   }
-  double best_ego = pc_utils_.findMedian(top_el_pts);
+  double best_ego = PointCloudUtils::findMedian(top_el_pts);
 
   return best_ego;
 }

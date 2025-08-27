@@ -41,8 +41,8 @@ struct Params {
   double med_alpha_down;
   double med_alpha_up_agg;
   double med_alpha_down_agg;
-  int num_pts_init;
-  int num_pts_recollect;
+  size_t num_pts_init;
+  size_t num_pts_recollect;
   double ego_recollect_threshold;
   double min_ego_velocity_for_correction;
   double ransac_preference_threshold;
@@ -71,7 +71,5 @@ class AmbiguitySolver {
   Params config;
 
  private:
-  PointCloudUtils pc_utils_;
   EgoInlierEstimator ego_solver_;
-  double C = 3e8;
 };

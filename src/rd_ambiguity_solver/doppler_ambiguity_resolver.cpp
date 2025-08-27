@@ -5,8 +5,7 @@
 
 #include "doppler_ambiguity_resolver.hpp"
 
-AmbiguitySolver::AmbiguitySolver(const std::string &yaml_path)
-    : pc_utils_(), ego_solver_(pc_utils_) {
+AmbiguitySolver::AmbiguitySolver(const std::string &yaml_path) : ego_solver_() {
   std::cout << "[+] Starting the solver" << std::endl;
   config = loadParams(yaml_path);
 }
@@ -42,8 +41,8 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
     solver_params_.med_alpha_down = sensor_config["med_alpha_down"].as<double>();
     solver_params_.med_alpha_up_agg = sensor_config["med_alpha_up_agg"].as<double>();
     solver_params_.med_alpha_down_agg = sensor_config["med_alpha_down_agg"].as<double>();
-    solver_params_.num_pts_init = sensor_config["num_pts_init"].as<int>();
-    solver_params_.num_pts_recollect = sensor_config["num_pts_recollect"].as<int>();
+    solver_params_.num_pts_init = sensor_config["num_pts_init"].as<size_t>();
+    solver_params_.num_pts_recollect = sensor_config["num_pts_recollect"].as<size_t>();
     solver_params_.ego_recollect_threshold = sensor_config["ego_recollect_threshold"].as<double>();
     solver_params_.min_ego_velocity_for_correction =
         sensor_config["min_ego_velocity_for_correction"].as<double>();
@@ -61,8 +60,10 @@ Params AmbiguitySolver::loadParams(const std::string &yaml_path) {
 
 std::pair<double, double> AmbiguitySolver::recoverSingleRangeDoppler(double amb_rng,
                                                                      double amb_dop) {
-  double f_rng = pc_utils_.rngToFreq(amb_rng, config.BW, config.T);  // Convert Range to frequency
-  double f_dop = pc_utils_.dopToFreq(amb_dop, config.LAMBDA);  // Convert Doppler to Frequency.
+  double f_rng =
+      PointCloudUtils::rngToFreq(amb_rng, config.BW, config.T);  // Convert Range to frequency
+  double f_dop =
+      PointCloudUtils::dopToFreq(amb_dop, config.LAMBDA);  // Convert Doppler to Frequency.
 
   double f_up = (f_rng + f_dop);
   double f_down = (f_rng - f_dop);
@@ -72,8 +73,8 @@ std::pair<double, double> AmbiguitySolver::recoverSingleRangeDoppler(double amb_
   } else if (f_down < f_up) {
     f_down = -f_down;
   }
-  double r_new = pc_utils_.freqToRng(((f_up + f_down) / 2), config.BW, config.T);
-  double d_new = pc_utils_.freqToDop(((f_up - f_down) / 2), config.LAMBDA);
+  double r_new = PointCloudUtils::freqToRng(((f_up + f_down) / 2), config.BW, config.T);
+  double d_new = PointCloudUtils::freqToDop(((f_up - f_down) / 2), config.LAMBDA);
 
   return {r_new, d_new};
 }
@@ -91,7 +92,7 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
   std::vector<size_t> valid_indices;
   valid_indices.reserve(points.size());
   for (size_t i = 0; i < points.size(); ++i) {
-    if (pc_utils_.validatePointCoordinates(points[i])) {  // Check if the point is valid.
+    if (PointCloudUtils::validatePointCoordinates(points[i])) {  // Check if the point is valid.
       valid_indices.emplace_back(i);
     }
   }
@@ -111,7 +112,7 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
     double doppler = pt.radial_vel();
 
     // Convert to Polar Coordinates
-    std::tuple<double, double, double> polar_coors = pc_utils_.cart2sphere(x, y, z);
+    std::tuple<double, double, double> polar_coors = PointCloudUtils::cart2sphere(x, y, z);
 
     rng[i] = std::get<0>(polar_coors);
     az[i] = std::get<1>(polar_coors);
@@ -198,8 +199,8 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
     for (double v : ego_velocities) {
       abs_devs.push_back(std::abs(v - inlier_v_ego));
     }
-    double mad = pc_utils_.findMedian(abs_devs);  // Use Median Absolute Deviation when
-                                                  // using median or Std when using mean
+    double mad = PointCloudUtils::findMedian(abs_devs);  // Use Median Absolute Deviation when
+                                                         // using median or Std when using mean
 
     double alpha_up = config.med_alpha_up;
     double alpha_dnw = config.med_alpha_down;
@@ -241,7 +242,8 @@ std::vector<VoyantPoint> AmbiguitySolver::Solver(const VoyantFrameWrapper &frame
       auto [new_rng, new_dop] = recoverSingleRangeDoppler(rng[i], vels[i]);
 
       // Convert back to cartesian
-      std::tuple<double, double, double> new_cart = pc_utils_.sphere2cart(new_rng, az[i], el[i]);
+      std::tuple<double, double, double> new_cart =
+          PointCloudUtils::sphere2cart(new_rng, az[i], el[i]);
       double nx = std::get<0>(new_cart);
       double ny = std::get<1>(new_cart);
       double nz = std::get<2>(new_cart);
@@ -300,8 +302,8 @@ int main(int argc, char *argv[]) {
                                                // argument
   // Create the playback instance
   AmbiguitySolver rngDopSolver(yaml_file_path);
-  PointCloudLogger pc_logger;  // Initialize the logger
-  VoyantPlayback player(0.0);  // Setting this to 0.0 to playback as fast as possible.
+  PointCloudLogger csv_logger;  // Initialize the logger
+  VoyantPlayback player(0.0);   // Setting this to 0.0 to playback as fast as possible.
   if (!player.isValid()) {
     std::cerr << "Failed to create VoyantPlayback instance: " << player.getLastError() << std::endl;
     return EXIT_FAILURE;
@@ -315,7 +317,7 @@ int main(int argc, char *argv[]) {
   }
 
   std::filesystem::path OutfilePath = std::filesystem::path(rngDopSolver.config.output_file);
-  if (!pc_logger.initializeCSV(OutfilePath)) {
+  if (!csv_logger.initializeCSV(OutfilePath)) {
     std::cerr << "Failed to initialize CSV file!" << std::endl;
     return EXIT_FAILURE;
   }
@@ -339,10 +341,10 @@ int main(int argc, char *argv[]) {
     std::vector<VoyantPoint> recovered_points = rngDopSolver.Solver(frame, frameIndex);
 
     // Write points immediately to CSV
-    pc_logger.writePointsSequential(recovered_points, frame);
+    csv_logger.writePointsSequential(recovered_points, frame);
   }
   // Close the CSV file
-  pc_logger.finalizeCSV();
+  csv_logger.finalizeCSV();
 
   // Check if we exited the loop due to an error
   if (!player.getLastError().empty()) {

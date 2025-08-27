@@ -19,7 +19,7 @@ bool PointCloudLogger::initializeCSV(const std::string &filename) {
   // Write header
   csv_file << "proto_version,api_version,firmware_version,hdl_version,"
               "device_id,frame_timestamp_seconds,frame_timestamp_nanoseconds,frame_index,nanosecs_"
-              "since_frame,point_index,azimuth_index,elevation_index,x,y,z,radial_vel,"
+              "since_frame,point_index,azimuth_index,elevation_index,x,y,z,radial_vel"
               ",snr_linear,calibrated_reflectance,"
               "noise_mean_estimate,min_ramp_snr,drop_reason\n";
 
@@ -30,9 +30,12 @@ bool PointCloudLogger::initializeCSV(const std::string &filename) {
 // Close CSV file
 void PointCloudLogger::finalizeCSV() {
   if (csv_file.is_open()) {
+    csv_file.flush();
     csv_file.close();
     csv_initialized = false;
     std::cout << "CSV file closed successfully." << std::endl;
+  } else {
+    std::cerr << "Warning: Attempted to finalize CSV, but file is already closed." << std::endl;
   }
 }
 

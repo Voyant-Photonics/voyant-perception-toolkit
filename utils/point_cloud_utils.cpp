@@ -5,13 +5,6 @@
 
 #include "point_cloud_utils.hpp"
 
-PointCloudUtils::PointCloudUtils() {
-  std::cout << "[+] Starting the utils" << std::endl;
-}  // Constructor
-PointCloudUtils::~PointCloudUtils() {
-  std::cout << "[+] Shutting the utils..." << std::endl;
-}  // Destructor
-
 double PointCloudUtils::rngToFreq(const double &rng, double bw, double T) {
   double frequency = (2 * bw * rng) / (C * T);
   return frequency;
@@ -37,7 +30,6 @@ bool PointCloudUtils::validatePointCoordinates(const PointDataWrapper &pt) {
   }
 
   // Check for unreasonably large coordinates
-  constexpr double MAX_COORD = 1000.0;
   if (std::abs(pt.x()) > MAX_COORD || std::abs(pt.y()) > MAX_COORD ||
       std::abs(pt.z()) > MAX_COORD) {
     return false;
